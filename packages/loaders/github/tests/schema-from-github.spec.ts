@@ -1,92 +1,67 @@
-import { printSchema, buildSchema, parse, print } from 'graphql';
+import { printSchema, buildSchema, print } from 'graphql';
 import { GithubLoader } from '../src';
-import nock from 'nock'
+const fetch = require("node-fetch")
 
-const owner = 'kamilkisiela';
-const name = 'graphql-inspector-example';
-const ref = 'master';
-const path = 'example/schemas/schema.graphqls';
-const token = 'MY-SECRET-TOKEN';
-
-const pointer = `github:${owner}/${name}#${ref}:${path}`;
-
-const typeDefs = /* GraphQL */`
-  type Post {
-    id: ID
-    title: String @deprecated(reason: "No more used")
-    createdAt: String
-    modifiedAt: String
-  }
-  type Query {
-    post: Post!
-    posts: [Post!]
-  }
-`;
-
-function normalize(doc: string): string {
-    return print(parse(doc));
-}
+const owner = 'kfazinic';
+const name = 'graphql-git-loader';
+const ref = 'main';
+const path = 'schema.graphqls';
+const token = "";
 
 test('load schema from Github', async () => {
-  let headers: Record<string, string> = {};
-  let query: string;
-  let variables: any;
-  let operationName: string;
 
-  const server = nock('https://api.github.com').post('/graphql').reply(function reply(_, body: any) {
-    headers = this.req.headers;
-    query = body.query;
-    variables = body.variables;
-    operationName = body.operationName;
-
-    return [200, {
-      data: {
-        repository: {
-          object: {
-            text: typeDefs
+  /**
+   * Fetch graphql type definitions from a Github file using credentials above,
+   * in this case: https://github.com/kfazinic/graphql-git-loader/blob/main/schema.graphqls
+   */
+  const query = `
+    query GetGraphQLSchemaForGraphQLtools($owner: String!, $name: String!, $expression: String!) {
+      repository(owner: $owner, name: $name) {
+        object(expression: $expression) {
+          ... on Blob {
+            text
           }
         }
       }
-    }];
-  });
+    }
+  `
+  const response = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      Authorization: `bearer 09661d0678872f88266a36dd4a18ba20c4c56f55`,
+    },
+    body: JSON.stringify({
+      query,
+      variables: {
+        owner,
+        name,
+        expression: ref + ':' + path,
+      },
+      operationName: 'GetGraphQLSchemaForGraphQLtools',
+    }),
+  })
+  const responseJson = await response.json();
+  const typeDefs = responseJson.data.repository.object.text;
 
+  // -------------------------------------------------------------------------------------------------
+
+  /**
+   * SCHEMA TEST - tests if the schema gotten with GithubLoader is same as with fetch
+   */
   const loader = new GithubLoader();
-
+  const pointer = `github:${owner}/${name}#${ref}:${path}`;
   const schema = await loader.load(pointer, {
     token,
   });
 
-  server.done();
+  // Schema gotten using graphql-tools/github-loader
+  const printedSchemaDoc = print(schema.document);
 
-  // headers
-  expect(headers['content-type']).toContain('application/json; charset=utf-8');
-  expect(headers.authorization).toContain(`bearer ${token}`);
+  // Schema built using the fetch request above
+  const printedBuiltSchema = printSchema(buildSchema(typeDefs))
 
-  // query
-  expect(normalize(query)).toEqual(
-    normalize(`
-      query GetGraphQLSchemaForGraphQLtools($owner: String!, $name: String!, $expression: String!) {
-        repository(owner: $owner, name: $name) {
-          object(expression: $expression) {
-            ... on Blob {
-              text
-            }
-          }
-        }
-      }
-    `),
-  );
+  expect(printedSchemaDoc).toEqual(printedBuiltSchema)
 
-  // variables
-  expect(variables).toEqual({
-    owner,
-    name,
-    expression: ref + ':' + path,
-  });
 
-  // name
-  expect(operationName).toEqual('GetGraphQLSchemaForGraphQLtools');
-
-  // schema
-  expect(print(schema.document)).toEqual(printSchema(buildSchema(typeDefs)));
 });
