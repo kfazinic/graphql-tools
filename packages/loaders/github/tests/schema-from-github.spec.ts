@@ -6,7 +6,7 @@ const owner = 'kfazinic';
 const name = 'graphql-git-schema';
 const ref = 'main';
 const path = 'schema.graphqls';
-const token = "09661d0678872f88266a36dd4a18ba20c4c56f55";
+const token = "";
 
 test('load schema from Github', async () => {
 
