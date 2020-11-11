@@ -3,10 +3,10 @@ import { GithubLoader } from '../src';
 const fetch = require("node-fetch")
 
 const owner = 'kfazinic';
-const name = 'graphql-git-loader';
+const name = 'graphql-git-schema';
 const ref = 'main';
 const path = 'schema.graphqls';
-const token = "";
+const token = "09661d0678872f88266a36dd4a18ba20c4c56f55";
 
 test('load schema from Github', async () => {
 
