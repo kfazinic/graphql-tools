@@ -29,7 +29,7 @@ test('load schema from Github', async () => {
     method: 'POST',
     headers: {
       'content-type': 'application/json; charset=utf-8',
-      Authorization: `bearer 09661d0678872f88266a36dd4a18ba20c4c56f55`,
+      Authorization: `bearer ${token}`,
     },
     body: JSON.stringify({
       query,
